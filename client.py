@@ -3,7 +3,7 @@ import threading
 import json
 import sys, time, signal
 
-HOST = ''
+HOST = '10.90.4.109'
 PORT = 80
 
 lock = threading.Lock()
@@ -33,7 +33,7 @@ class SocketClient(object):
     
     def talk(self):
         while not self.stop:
-            msg = input('')
+            msg = input('[->]: ')
             data = {'action': 'chat', 'username': self.username, 'message': msg}
             self.s.send(json.dumps(data).encode('utf-8'))
 
