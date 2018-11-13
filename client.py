@@ -143,7 +143,12 @@ class SocketClient(object):
             logger.info('Dinliyorum')
             # try:
             data = self.s.recv(1024).decode("utf-8")
-            j_data = json.loads(data)
+            
+            try:
+                j_data = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+
             action = j_data['action']
 
             logger.info(j_data)
