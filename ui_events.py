@@ -22,6 +22,9 @@ class UI_Events(object):
 
     def txt_message_enter(self):
         self.btn_send_clicked()
+    
+    def txt_username_enter(self):
+        self.btn_connect_clicked()
 
     def on_message(self, msg):
         self.ui.txt_chat.append(msg)
@@ -31,9 +34,7 @@ class UI_Events(object):
         model = QStandardItemModel(self.ui.lst_users)
 
         for user in obj:
-            # create an item with a caption
             item = QStandardItem(user)        
-            # Add the item to the model
             model.appendRow(item)
         
         # Apply the model to the list view
@@ -47,6 +48,7 @@ class UI_Events(object):
         self.ui.statusbar.showMessage('Connected')
         self.ui.txt_message.setReadOnly(False)
         self.ui.txt_username.setReadOnly(True)
+        self.ui.txt_message.setFocus()
 
     def on_disconnect(self):
         self.ui.btn_disconnect.setVisible(False)
@@ -56,6 +58,7 @@ class UI_Events(object):
         self.ui.statusbar.showMessage('Disconnected')
         self.ui.txt_message.setReadOnly(True)
         self.ui.txt_username.setReadOnly(False)
+        self.ui.txt_username.setFocus()
 
     def on_close(self):
         self.app.closeAllWindows()

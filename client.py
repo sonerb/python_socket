@@ -143,7 +143,7 @@ class SocketClient(object):
             logger.info('Dinliyorum')
             # try:
             data = self.s.recv(1024).decode("utf-8")
-            
+
             try:
                 j_data = json.loads(data)
             except json.JSONDecodeError:
@@ -278,6 +278,7 @@ if __name__ == '__main__':
 
     ui.btn_send.clicked.connect(events.btn_send_clicked)
     ui.txt_message.returnPressed.connect(events.txt_message_enter)
+    ui.txt_username.returnPressed.connect(events.txt_username_enter)
 
     ui.btn_disconnect.setVisible(False)
     ui.actionDisconnect.setVisible(False)
