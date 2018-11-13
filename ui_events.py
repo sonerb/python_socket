@@ -1,10 +1,12 @@
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
+from PyQt5.QtWidgets import QMessageBox
 
 class UI_Events(object):
-    def __init__(self, app, ui, client):
+    def __init__(self, app, ui, client, window):
         self.ui = ui
         self.app = app
         self.client = client
+        self.window = window
 
     def btn_connect_clicked(self):
         username = self.ui.txt_username.text()
@@ -30,14 +32,12 @@ class UI_Events(object):
         self.ui.txt_chat.append(msg)
 
     def on_user_list(self, obj):
-        # Create an empty model for the list's data
         model = QStandardItemModel(self.ui.lst_users)
 
         for user in obj:
             item = QStandardItem(user)        
             model.appendRow(item)
         
-        # Apply the model to the list view
         self.ui.lst_users.setModel(model)
     
     def on_connect(self):
@@ -65,3 +65,15 @@ class UI_Events(object):
 
     def closeEvent(self, QCloseEvent):
         self.client.stop()
+
+    def show_dialog_box(self, title, message, mb_type):
+        if mb_type == 'c':
+            QMessageBox.critical(self.window, title, message)
+        elif mb_type == 'i':
+            QMessageBox.information(self.window, title, message)
+        elif mb_type == 'q':
+            QMessageBox.question(self.window, title, message)
+        elif mb_type == 'w':
+            QMessageBox.warning(self.window, title, message)
+        else:
+            QMessageBox.information(self.window, title, message)

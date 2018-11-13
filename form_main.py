@@ -13,6 +13,9 @@ class Ui_SocketChat(object):
         SocketChat.setObjectName("SocketChat")
         SocketChat.resize(680, 400)
         SocketChat.setMinimumSize(QtCore.QSize(550, 300))
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap(":/images/resources/images/chat_48x48.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        SocketChat.setWindowIcon(icon)
         self.centralwidget = QtWidgets.QWidget(SocketChat)
         self.centralwidget.setObjectName("centralwidget")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.centralwidget)
@@ -102,3 +105,4 @@ class Ui_SocketChat(object):
         self.actionDisconnect.setText(_translate("SocketChat", "Disconnect"))
         self.actionConnect.setText(_translate("SocketChat", "Connect"))
 
+import resources_rc

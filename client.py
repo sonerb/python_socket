@@ -6,6 +6,7 @@ import logging, coloredlogs
 
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal, QObject, pyqtSlot
+from PyQt5.QtWidgets import QMessageBox
 
 from form_main import Ui_SocketChat
 from ui_events import UI_Events
@@ -53,16 +54,10 @@ class SocketClient(object):
         self.threads = []
         self.username = None
 
-        # if 'username' not in kwargs:
-        #     logger.error('[i] Kullanıcı adı tanımlanmadı.')
-        # else:
-        #     self.username = kwargs['username']
-
         if 'ui' not in kwargs:
             logger.error('UI not defined!')
         else:
             self.ui = kwargs['ui']
-        
 
         if 'signals' not in kwargs:
             logger.error('signals not defined!')
@@ -90,16 +85,21 @@ class SocketClient(object):
                 self.is_connected = False
         else:
             logger.info('Already Connected')
+        
+        if not self.is_connected:
+            self.signals.signal_show_dialog_box.emit('Hata', 'Sunucuya erişilemedi!', 'c')
+
 
     def set_username(self, username):
-        self.username = username
-        data = {'action': 'connect', 'username': self.username, 'message': ''}
-        self.s.send(json.dumps(data).encode('utf-8'))
-        logger.info('Username set')
+        if self.is_connected:
+            self.username = username
+            data = {'action': 'connect', 'username': self.username, 'message': ''}
+            self.s.send(json.dumps(data).encode('utf-8'))
+            logger.info('Username set')
 
     # def show_dialog(self, txt):
     #     msg = QMessageBox()
-    #     msg.setIcon(QMessageBox.Information)
+    #     msg.setIcon(QMessageBox.Error)
     #     msg.setText(txt)
     #     msg.setWindowTitle("Dialog")
     #     msg.exec_()
@@ -239,6 +239,7 @@ class Communicate(QObject):
     signal_on_disconnect = pyqtSignal()
     signal_on_user_list = pyqtSignal(object)
     signal_clear_user_list = pyqtSignal()
+    signal_show_dialog_box = pyqtSignal(str, str, str)
 
     def __init__(self):
         QObject.__init__(self)
@@ -261,13 +262,14 @@ if __name__ == '__main__':
 
     signals = Communicate()
     myClient = SocketClient(ui=ui, signals=signals)
-    events = UI_Events(app, ui, myClient)
+    events = UI_Events(app, ui, myClient, MainWindow)
 
 
     signals.signal_on_message.connect(events.on_message)
     signals.signal_on_connect.connect(events.on_connect)
     signals.signal_on_disconnect.connect(events.on_disconnect)
     signals.signal_on_user_list.connect(events.on_user_list)
+    signals.signal_show_dialog_box.connect(events.show_dialog_box)
 
     ui.btn_connect.clicked.connect(events.btn_connect_clicked)
     ui.btn_disconnect.clicked.connect(events.btn_disconnect_clicked)
@@ -288,7 +290,7 @@ if __name__ == '__main__':
     
     MainWindow.closeEvent = events.closeEvent
 
-    myClient.connect()
+    # myClient.connect()
 
     MainWindow.show()
     sys.exit(app.exec_())

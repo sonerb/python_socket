@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="images">
+    <file>resources/images/chat_48x48.ico</file>
+    <file>resources/images/chat_32x32.png</file>
+  </qresource>
+</RCC>
