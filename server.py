@@ -1,8 +1,19 @@
+__author__ = "Soner Bayram, Orhan Yılmaz"
+__copyright__ = "Copyright 2018, The Socket Chat Program"
+__credits__ = ["sonerb", "mafgom"]
+__license__ = "GPL"
+__version__ = "0.0.1"
+__status__ = "Development"
+
 import socket
 import threading
 import sys, signal, json, time
 import uuid
 import logging, coloredlogs
+
+from crypton import Crypton
+
+PASSWORD = "My Secret Word!"
 
 FIELD_STYLES = dict(
     asctime=dict(color='green'),
@@ -56,6 +67,9 @@ class SocketServer(object):
         self.s.bind((self.host, self.port))
         logger.info("Server kuruldu: " + self.host + ":" + str(self.port))
 
+    def json_to_str(self, j_data):
+        return kripton.crypt(json.dumps(j_data))
+
     def send_user_list(self):
         users = []
         for key, val in self.connections.items():
@@ -64,14 +78,14 @@ class SocketServer(object):
         data = {'action': 'user_list', 'username': 'server', 'message': users}
 
         for key, val in self.connections.items():
-            val['c'].send(json.dumps(data).encode('utf-8'))
+            val['c'].send(self.json_to_str(data).encode('utf-8'))
     
     def on_connect(self, id, user_socket, user_data):
         username = user_data['username']
 
         if username in BANNED_USERS:
             data = {'action': 'connect', 'username': 'server', 'message': 'Geçersiz kullanıcı adı girdiniz.', 'status': False}
-            user_socket['c'].send(json.dumps(data).encode('utf-8'))
+            user_socket['c'].send(self.json_to_str(data).encode('utf-8'))
             return
 
         data = {'action': 'response', 'username': 'server', 'message': 'Hoşgeldiniz, {0}'.format(username)}
@@ -80,10 +94,10 @@ class SocketServer(object):
 
         for u_id in self.connections:
             if u_id != id:
-                self.connections[u_id]['c'].send(json.dumps(data).encode('utf-8'))
+                self.connections[u_id]['c'].send(self.json_to_str(data).encode('utf-8'))
             else:
                 data = {'action': 'connect', 'username': 'server', 'message': 'Hoşgeldiniz, {0}'.format(username), 'status': True}
-                user_socket['c'].send(json.dumps(data).encode('utf-8'))
+                user_socket['c'].send(self.json_to_str(data).encode('utf-8'))
             
         self.send_user_list()
 
@@ -94,10 +108,10 @@ class SocketServer(object):
 
         for u_id in self.connections:
             if u_id != id:
-                self.connections[u_id]['c'].send(json.dumps(data).encode('utf-8'))
+                self.connections[u_id]['c'].send(self.json_to_str(data).encode('utf-8'))
             else:
                 data = {'action': 'disconnect', 'username': 'server', 'message': 'Güle güle, {0}'.format(username), 'status': True}
-                user_socket['c'].send(json.dumps(data).encode('utf-8'))
+                user_socket['c'].send(self.json_to_str(data).encode('utf-8'))
 
         del self.connections[id]
 
@@ -110,32 +124,62 @@ class SocketServer(object):
         data = {'action': 'response', 'username': username, 'message': message}
 
         for u_id in self.connections:
-            self.connections[u_id]['c'].send(json.dumps(data).encode('utf-8'))
+            self.connections[u_id]['c'].send(self.json_to_str(data).encode('utf-8'))
+
+    def on_handshake(self, id, user_socket, hash):
+        logger.info('Handshake : {0}'.format(hash))
+        user_socket['c'].send('##HANDSHAKE:{0}'.format(kripton.crypt('MERHABA')).encode('utf-8'))
+
+        if kripton.crypt('MERHABA') != hash:
+            logger.error('Hash not match')
+            return False
+        else:
+            return True
 
 
     def listen(self, id):
         while self.status :
+            
+            my_conn = self.connections[id]
             try:
-                my_conn = self.connections[id]
-                msg = my_conn['c'].recv(1024).decode("utf-8")
-
-                logger.info("[{0}]: {1}".format(my_conn['addr'][0], msg))
-
-                j_data = json.loads(msg)
-                action = j_data['action']
-
-                if action == 'connect':
-                    self.on_connect(id, my_conn, j_data)
-                elif action == 'disconnect':
-                    self.on_disconnect(id, my_conn, j_data)
-                    break
-                elif action == 'chat':
-                    self.on_chat(id, my_conn, j_data)
-
-            except ConnectionResetError:
+                data = my_conn['c'].recv(1024).decode("utf-8")
+            except Exception as e:
+                logger.exception(e)
+                my_conn['c'].shutdown(socket.SHUT_WR)
+                my_conn['c'].close()
                 del self.connections[id]
-                logger.info("[i] {0} disconnected!".format(my_conn['username']))
                 break
+            else:
+                if len(data) == 0:
+                    logger.warning('No data Available')
+                    my_conn['c'].shutdown(socket.SHUT_WR)
+                    my_conn['c'].close()
+                    del self.connections[id]
+                    break
+                else:
+                    if data[:12] == '##HANDSHAKE:':
+                        self.on_handshake(id, my_conn, data[12:])
+                        continue
+
+                    data = kripton.decrypt(data)
+
+                    logger.info("[{0}]: {1}".format(my_conn['addr'][0], data))
+
+                    try:
+                        j_data = json.loads(data)
+                    except json.JSONDecodeError:
+                        logger.error('JSON Error')
+                        continue
+
+                    action = j_data['action']
+
+                    if action == 'connect':
+                        self.on_connect(id, my_conn, j_data)
+                    elif action == 'disconnect':
+                        self.on_disconnect(id, my_conn, j_data)
+                        break
+                    elif action == 'chat':
+                        self.on_chat(id, my_conn, j_data)
 
     def wait_connection(self):
         while self.status :
@@ -170,6 +214,10 @@ class SocketServer(object):
     def stop(self):
         logger.warning('Stop çağırıldı.')
         self.status = False
+        
+        for k,v in self.connections.items():
+            v['c'].shutdown(socket.SHUT_WR)
+
         for i in self.threads:
             i.join
         logger.info('Finito')
@@ -185,4 +233,5 @@ def main():
     myServer.start()
 
 if __name__ == '__main__':
+    kripton = Crypton(PASSWORD)
     main()

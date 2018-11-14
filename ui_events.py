@@ -1,5 +1,9 @@
+from PyQt5 import QtWidgets
+from PyQt5.QtCore import QModelIndex
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtWidgets import QMessageBox
+
+from form_chat import Ui_ChatWindow
 
 class UI_Events(object):
     def __init__(self, app, ui, client, window):
@@ -35,7 +39,8 @@ class UI_Events(object):
         model = QStandardItemModel(self.ui.lst_users)
 
         for user in obj:
-            item = QStandardItem(user)        
+            item = QStandardItem(user)     
+            item.setEditable(False)   
             model.appendRow(item)
         
         self.ui.lst_users.setModel(model)
@@ -60,6 +65,10 @@ class UI_Events(object):
         self.ui.txt_username.setReadOnly(False)
         self.ui.txt_username.setFocus()
 
+    def on_clear_user_list(self):
+        model = QStandardItemModel(self.ui.lst_users)        
+        self.ui.lst_users.setModel(model)
+
     def on_close(self):
         self.app.closeAllWindows()
 
@@ -77,3 +86,10 @@ class UI_Events(object):
             QMessageBox.warning(self.window, title, message)
         else:
             QMessageBox.information(self.window, title, message)
+
+    def lst_users_double_clicked(self, item: QModelIndex):
+        # print(self.ui.lst_users.selectionModel.select(item))
+        self.ui.MainWindow = QtWidgets.QMainWindow()
+        self.ui.cw = Ui_ChatWindow()
+        self.ui.cw.setupUi(self.ui.MainWindow)
+        self.ui.MainWindow.show()

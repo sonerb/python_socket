@@ -106,3 +106,13 @@ class Ui_SocketChat(object):
         self.actionConnect.setText(_translate("SocketChat", "Connect"))
 
 import resources_rc
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    SocketChat = QtWidgets.QMainWindow()
+    ui = Ui_SocketChat()
+    ui.setupUi(SocketChat)
+    SocketChat.show()
+    sys.exit(app.exec_())
+
