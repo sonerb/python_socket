@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 __author__ = "Soner Bayram, Orhan Yılmaz"
 __copyright__ = "Copyright 2018, The Socket Chat Program"
 __credits__ = ["sonerb", "mafgom"]
@@ -134,6 +135,7 @@ class SocketServer(object):
 
     def on_handshake(self, id, user_socket, hash):
         LOGGER.info('Handshake : {0}'.format(hash))
+        # LOGGER.info('Handshake geldi!')
         user_socket['c'].send('##HANDSHAKE:{0}'.format(kripton.crypt('MERHABA')).encode('utf-8'))
 
         if kripton.crypt('MERHABA') != hash:
@@ -149,14 +151,14 @@ class SocketServer(object):
             my_conn = self.connections[id]
             try:
                 data = my_conn['c'].recv(1024).decode("utf-8")
-            except Exception as e:
+            except (ConnectionError, ConnectionRefusedError, ConnectionResetError, ConnectionAbortedError) as e:
                 LOGGER.warning(e)
                 my_conn['c'].shutdown(socket.SHUT_WR)
                 my_conn['c'].close()
                 del self.connections[id]
                 break
             else:
-                if len(data) == 0:
+                if not data:
                     LOGGER.warning('No data Available')
                     my_conn['c'].shutdown(socket.SHUT_WR)
                     my_conn['c'].close()

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 client.py
 """
@@ -8,21 +9,29 @@ __license__ = "GPL"
 __version__ = "0.0.1"
 __status__ = "Development"
 
+import os
 import json
 import logging
 import socket
 import sys
 import threading
+import time
 
 import coloredlogs
+import pprint
+
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtWidgets import QSystemTrayIcon, QStyle, QAction, QMenu
+from PyQt5.QtGui import QPixmap, QIcon
 
 from crypton import Crypton
 from form_main import Ui_SocketChat
 from ui_events import UI_Events
 
 PASSWORD = "My Secret Word!"
+HOST = '10.90.4.109'
+PORT = 80
 
 FIELD_STYLES = dict(
     asctime=dict(color='green'),
@@ -53,21 +62,42 @@ coloredlogs.install(
     level_styles=LEVEL_STYLES,
     field_styles=FIELD_STYLES,)
 
-
-HOST = '10.90.4.109'
-PORT = 80
-
 class SocketClient(object):
     """ Socket Client class """
-    def __init__(self, _signals):
+    def __init__(self, *args, **kwargs):
         """ initialize class """
         self.is_connected = False
+        self.is_handshake_done = False
         self.status = True
         self.sck = socket.socket()
         self.threads = []
         self.username = None
-        self.signals = _signals
-        self.kripton = Crypton(PASSWORD)
+
+        if 'signals' in kwargs:
+            self.signals = kwargs['signals']
+        else:
+            LOGGER.error('signal not defined!')
+        
+        if 'server' in kwargs:
+            self.host_port = kwargs['server']
+        else:
+            LOGGER.error('server not defined!')
+
+        if 'enc_pass' in kwargs:
+            self._enc_pass = kwargs['enc_pass']
+        else:
+            LOGGER.error('enc_pass not defined!')
+
+        self.kripton = Crypton(self._enc_pass)
+
+    @property
+    def enc_pass(self):
+        return self._enc_pass
+
+    @enc_pass.setter
+    def enc_pass(self, x):
+        self._enc_pass = x
+        self.kripton = Crypton(self._enc_pass)
 
     def json_to_str(self, j_data):
         """ json data to string with crypton encryption """
@@ -79,7 +109,7 @@ class SocketClient(object):
             self.sck = socket.socket()
             LOGGER.info('Connecting...')
             try:
-                self.sck.connect((HOST, PORT))
+                self.sck.connect(self.host_port)
                 self.is_connected = True
             except ConnectionRefusedError:
                 LOGGER.error('Connection Refused!')
@@ -99,14 +129,26 @@ class SocketClient(object):
         else:
             self.status = True
 
+    def set_username_thread(self):
+        while not self.is_handshake_done:
+            LOGGER.info('handshake not done')
+            time.sleep(0.1)
+        data = {'action': 'connect', 'username': self.username, 'message': ''}
+        self.sck.send(self.json_to_str(data).encode('utf-8'))
+        LOGGER.info('Username set')
 
     def set_username(self, username):
         """ request set username method """
         if self.is_connected:
             self.username = username
-            data = {'action': 'connect', 'username': self.username, 'message': ''}
-            self.sck.send(self.json_to_str(data).encode('utf-8'))
-            LOGGER.info('Username set')
+
+            uname_hs_t = threading.Thread(target=self.set_username_thread)
+            self.threads.append(uname_hs_t)
+            uname_hs_t.start()
+
+            # data = {'action': 'connect', 'username': self.username, 'message': ''}
+            # self.sck.send(self.json_to_str(data).encode('utf-8'))
+            # LOGGER.info('Username set')
 
     def create_message(self, username, message, date_time):
         """ message create method """
@@ -160,7 +202,7 @@ class SocketClient(object):
     def on_handshake(self, handshake_hash):
         """ handshake response method """
         LOGGER.info('Handshake : %s', handshake_hash)
-
+        # LOGGER.info('Handshake geldi')
         if self.kripton.crypt('MERHABA') != handshake_hash:
             return False
         else:
@@ -207,6 +249,7 @@ class SocketClient(object):
                             self.signals.signal_show_dialog_box.emit('Hata', \
                             'Güvenli bağlantı sağlanamadı!', 'c')
                         else:
+                            self.is_handshake_done = True
                             continue
 
                     data = self.kripton.decrypt(data)
@@ -303,6 +346,18 @@ class Communicate(QObject):
     def __init__(self):
         QObject.__init__(self)
 
+import resources_rc
+
+def load_settings():
+    if os.path.exists('settings.json'):
+        json_data = open('settings.json').read()
+
+        data = json.loads(json_data)
+        return data
+    else:
+        return False
+
+
 def main():
     """ main function """
     app = QtWidgets.QApplication(sys.argv)
@@ -310,9 +365,16 @@ def main():
     qt_ui = Ui_SocketChat()
     qt_ui.setupUi(main_window)
 
+    # j_settings = json.load('settings.json')
+    j_settings = load_settings()
+    if j_settings:
+        PASSWORD = j_settings['settings']['encryption']
+        HOST = j_settings['settings']['server'][0]
+        PORT = int(j_settings['settings']['server'][1])
+
     signals = Communicate()
-    sck_client = SocketClient(signals)
-    events = UI_Events(app, qt_ui, sck_client, main_window)
+    sck_client = SocketClient(server=(HOST, PORT), enc_pass=PASSWORD, signals=signals)
+    events = UI_Events(app, qt_ui, sck_client, main_window, j_settings)
 
     signals.signal_on_message.connect(events.on_message)
     signals.signal_on_connect.connect(events.on_connect)
@@ -333,12 +395,44 @@ def main():
     qt_ui.txt_username.returnPressed.connect(events.txt_username_enter)
 
     qt_ui.lst_users.doubleClicked.connect(events.lst_users_double_clicked)
+    qt_ui.actionPrerefences.triggered.connect(events.open_preferences)
 
     qt_ui.btn_disconnect.setVisible(False)
     qt_ui.actionDisconnect.setVisible(False)
 
     qt_ui.statusbar.showMessage('Disconnected')
     qt_ui.txt_message.setReadOnly(True)
+
+    ############################# SYSTEM TRAY ICON #############################
+    icon = QIcon()
+    icon.addPixmap(QPixmap(":/images/resources/images/chat_48x48.ico"), QIcon.Normal, QIcon.Off)
+
+    main_window.tray_icon = QSystemTrayIcon(main_window)
+    main_window.tray_icon.setIcon(icon) #setIcon(main_window.style().standardIcon(QStyle.SP_ComputerIcon))
+    main_window.tray_icon.activated.connect(events.sys_tray_icon_activated)
+    # main_window.tray_icon.messageClicked.connect(main_window.show)
+
+    '''
+        Define and add steps to work with the system tray icon
+        show - show window
+        hide - hide window
+        exit - exit from application
+    '''
+    show_action = QAction("Show", main_window)
+    quit_action = QAction("Exit", main_window)
+    hide_action = QAction("Hide", main_window)
+    show_action.triggered.connect(main_window.show)
+    hide_action.triggered.connect(main_window.hide)
+    quit_action.triggered.connect(events.appQuitEvent)
+
+    tray_menu = QMenu()
+    tray_menu.addAction(show_action)
+    tray_menu.addAction(hide_action)
+    tray_menu.addAction(quit_action)
+
+    main_window.tray_icon.setContextMenu(tray_menu)
+    main_window.tray_icon.show()
+    ########################################3###################################
 
     main_window.closeEvent = events.closeEvent
 
