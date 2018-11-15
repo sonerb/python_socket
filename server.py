@@ -104,7 +104,8 @@ class SocketServer(object):
             else:
                 data = {'action': 'connect', 'username': 'server', 'message': 'Hoşgeldiniz, {0}'.format(username), 'date_time': self.get_date_time(), 'status': True}
                 user_socket['c'].send(self.json_to_str(data).encode('utf-8'))
-            
+        
+        time.sleep(0.1)
         self.send_user_list()
 
     def on_disconnect(self, id, user_socket, user_data):
@@ -119,7 +120,11 @@ class SocketServer(object):
                 data = {'action': 'disconnect', 'username': 'server', 'message': 'Güle güle, {0}'.format(username), 'date_time': self.get_date_time(), 'status': True}
                 user_socket['c'].send(self.json_to_str(data).encode('utf-8'))
 
+        # self.connections[id]['c'].shutdown(socket.SHUT_WR)
+        # self.connections[id]['c'].close()
         del self.connections[id]
+    
+        LOGGER.info('%s kullanıcısı silindi', id)
 
         self.send_user_list()
 
@@ -176,6 +181,7 @@ class SocketServer(object):
                     try:
                         j_data = json.loads(data)
                     except json.JSONDecodeError:
+                        LOGGER.error('json data : %s', data)
                         LOGGER.error('JSON Error')
                         continue
 

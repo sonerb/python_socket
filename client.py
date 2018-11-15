@@ -92,10 +92,12 @@ class SocketClient(object):
 
     @property
     def enc_pass(self):
+        """ return enc_pass value """
         return self._enc_pass
 
     @enc_pass.setter
     def enc_pass(self, x):
+        """ set enc_pass value """
         self._enc_pass = x
         self.kripton = Crypton(self._enc_pass)
 
@@ -106,26 +108,35 @@ class SocketClient(object):
     def connect(self):
         """ start connection method """
         if not self.is_connected:
-            self.sck = socket.socket()
-            LOGGER.info('Connecting...')
             try:
+                self.sck = socket.socket()
+                self.sck.settimeout(5)
+                LOGGER.info('Connecting...')
                 self.sck.connect(self.host_port)
-                self.is_connected = True
             except ConnectionRefusedError:
                 LOGGER.error('Connection Refused!')
-                self.is_connected = False
+                error_message = "Connection Refused!"
             except ConnectionAbortedError:
                 LOGGER.error('Connection Aborted!')
-                self.is_connected = False
+                error_message = "Connection Aborted!"
             except ConnectionResetError:
                 LOGGER.error('Connection Reset!')
-                self.is_connected = False
+                error_message = "Connection Reset!"
+            except socket.timeout:
+                LOGGER.error('Socket Timeout Error')
+                error_message = "Socket Timeout Error!"
+            except TimeoutError:
+                LOGGER.error('Timeout Error')
+                error_message = "Timeout Error!"
+            else:
+                self.sck.settimeout(None)
+                self.is_connected = True
         else:
             LOGGER.info('Already Connected')
 
         if not self.is_connected:
             self.sck.close()
-            self.signals.signal_show_dialog_box.emit('Hata', 'Sunucuya erişilemedi!', 'c')
+            self.signals.signal_show_dialog_box.emit('Error', error_message, 'c')
         else:
             self.status = True
 
@@ -182,6 +193,8 @@ class SocketClient(object):
             self.signals.signal_on_message.emit(self.create_message(username, message, date_time))
             self.signals.signal_clear_user_list.emit()
 
+        self.sck.shutdown(socket.SHUT_WR)
+        self.sck.close()
         LOGGER.info('Disconnect oldum')
         return True
 
@@ -256,6 +269,7 @@ class SocketClient(object):
                     try:
                         j_data = json.loads(data)
                     except json.JSONDecodeError:
+                        LOGGER.error('json data : %s', data)
                         LOGGER.error('JSON Error')
                         continue
 
