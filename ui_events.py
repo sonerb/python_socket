@@ -4,7 +4,7 @@ import queue
 
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import QModelIndex, Qt
-from PyQt5.QtGui import (QCloseEvent, QIcon, QPixmap, QStandardItem,
+from PyQt5.QtGui import (QCloseEvent, QShowEvent, QIcon, QPixmap, QStandardItem,
                          QStandardItemModel, QCursor, QFont)
 from PyQt5.QtWidgets import QMessageBox, QSystemTrayIcon
 
@@ -53,6 +53,19 @@ class UI_Events(object):
     def on_message(self, msg):
         self.ui.txt_chat.append(msg)
 
+    def on_notify_click(self, username):
+        # self.window.show()
+        # self.window.activateWindow()
+        # self.window.raise_()
+
+        self.ui.windows.chat[username].window.show()
+        # self.ui.windows.chat[username].window.setWindowState((self.ui.windows.chat[username].window.windowState() & ~Qt.WindowMinimized) | Qt.WindowActive)
+        self.ui.windows.chat[username].window.raise_()
+        self.ui.windows.chat[username].window.activateWindow()
+
+        self.ui.windows.chat[username].ui.txt_message.setFocus(True)
+        self.load_user_messages(username)
+
     QtCore.pyqtSlot(str, str, str)
     def on_pm_message(self, msg, m_from, m_to):
         if self.client.username == m_from:
@@ -70,65 +83,36 @@ class UI_Events(object):
                 self.client.user_chat_queue[m_from].put(msg)
                 print('karşı, queue eklendi.')
 
-                model = self.ui.lst_users.model()
-                std_items = model.findItems(m_from)
-                if std_items:
-                    item = std_items[0]
-                    tmp_font = item.font()
+                lst_model = self.ui.lst_users.model()
+                lst_item = lst_model.item(self.client.users.index(m_from))
+                if lst_item:
+                    tmp_font = lst_item.font()
                     tmp_font.setBold(True)
-                    item.setFont(tmp_font)
-                # item.setText('{0} ({1})'.format(item.text(), self.client.user_chat_queue[m_from].qsize()))
-                    print(item.text())
-
-                # for index in range(model.rowCount()):
-                #     item = model.item(index)
-                #     tmp_font = item.font()
-                #     tmp_font.setBold(True)
-                #     item.setFont(tmp_font)
-                #     print(item.text())
-
-
-        # if self.client.username == m_from:
-        #     self.create_chat_window(m_to)
-        #     self.ui.windows.chat[m_to][1].txt_chat.append(msg)
-        # else:
-        #     self.create_chat_window(m_from)
-
-        #     # if self.ui.windows.chat[m_from][0].isVisible():
-        #     #     self.ui.windows.chat[m_from][1].txt_chat.append(msg)
-        #     # else:
-        #     #     self.ui.windows.chat[m_from][1].txt_chat.append(msg)
-        #     #     self.ui.windows.chat[m_from][0].hide()
-
-        #     if self.ui.windows.chat[m_from][0].isVisible():
-        #         print('isVisible True')
-        #         self.ui.windows.chat[m_from][1].txt_chat.append(msg)
-        #     else:
-        #         print('isVisible False')
-        #         self.ui.windows.chat[m_from][1].txt_chat.append(msg)
-        #         self.ui.windows.chat[m_from][0].showMinimized()
-
-        #         self.window.tray_icon.messageClicked.connect(self.ui.windows.chat[m_from][0].show)
-        #         self.window.tray_icon.showMessage(
-        #             self.window.windowTitle(),
-        #             "%s send a message"%(m_from),
-        #             QSystemTrayIcon.Information,
-        #             2000
-        #         )
+                    lst_item.setFont(tmp_font)
+                    lst_item.setText('{0} ({1})'.format(m_from, self.client.user_chat_queue[m_from].qsize()))
+                    self.window.tray_icon.messageClicked.connect(partial(self.on_notify_click, m_from))
+                    self.window.tray_icon.showMessage(
+                        self.window.windowTitle(),
+                        "%s send a message"%(m_from),
+                        QSystemTrayIcon.Information,
+                        2000
+                    )
 
     QtCore.pyqtSlot(object)
     def on_user_list(self, obj):
         model = QStandardItemModel(self.ui.lst_users)
+        self.client.users = []
 
         for user in obj:
-            item = QStandardItem(user)     
-            item.setEditable(False)   
+            item = QStandardItem(user)
+            item.setEditable(False)
             model.appendRow(item)
-        
+            self.client.users.append(user)
+
         self.ui.lst_users.setModel(model)
 
         self.ui.lbl_sbar_user_count.setText('{0}'.format(model.rowCount()))
-    
+
     QtCore.pyqtSlot()
     def on_connect(self):
         self.ui.btn_connect.setVisible(False)
@@ -164,7 +148,8 @@ class UI_Events(object):
 
     QtCore.pyqtSlot()
     def on_clear_user_list(self):
-        model = QStandardItemModel(self.ui.lst_users)        
+        model = QStandardItemModel(self.ui.lst_users)
+        self.client.users = []
         self.ui.lst_users.setModel(model)
 
         QtCore.pyqtSlot(str, str, str)
@@ -183,9 +168,18 @@ class UI_Events(object):
     def on_close(self):
         self.app.closeAllWindows()
 
-    def closeEvent(self, event:QCloseEvent):
+    def closeEvent(self, event: QCloseEvent):
         if self.settings['settings']['minimize']:
             event.ignore()
+
+            if hasattr(self.ui, 'windows'):
+                if hasattr(self.ui.windows, 'settings'):
+                    self.ui.windows.settings.window.hide()
+
+                if hasattr(self.ui.windows, 'chat'):
+                    for key, val in self.ui.windows.chat.items():
+                        val.window.hide()
+
             self.window.hide()
             self.window.tray_icon.showMessage(
                 self.window.windowTitle(),
@@ -215,9 +209,6 @@ class UI_Events(object):
 
         if not hasattr(self.ui.windows, 'chat'):
             setattr(self.ui.windows, 'chat', dict())
-        
-        # if not 'chat' in self.ui.windows:
-        #     self.ui.windows.chat = dict()
 
         if not username in self.ui.windows.chat:
             icon = QIcon()
@@ -237,32 +228,41 @@ class UI_Events(object):
             tmp_window.setWindowIcon(icon)
             tmp_window.setWindowTitle('{} - Chat'.format(username))
 
+            tmp_window.stackUnder(self.window)
+
             self.ui.windows.chat[username] = lambda: None
 
             setattr(self.ui.windows.chat[username], 'window', tmp_window)
             setattr(self.ui.windows.chat[username], 'ui', tmp_ui)
 
+
             self.chat_windows_status(True)
 
-    def lst_users_double_clicked(self, item: QModelIndex):
-        username = item.data()
-
-        model = self.ui.lst_users.model()
-        std_item = model.item(item.row())
-        tmp_font = std_item.font()
-        tmp_font.setBold(False)
-        std_item.setFont(tmp_font)
-
-        self.create_chat_window(username)
-
-        self.ui.windows.chat[username].window.show()
-        self.ui.windows.chat[username].ui.txt_message.setFocus()
-
+    def load_user_messages(self, username):
         if username in self.client.user_chat_queue:
             while not self.client.user_chat_queue[username].empty():
                 msg = self.client.user_chat_queue[username].get()
-                print(msg)
                 self.ui.windows.chat[username].ui.txt_chat.append(msg)
+
+        row_idx = self.client.users.index(username)
+        model = self.ui.lst_users.model()
+        std_item = model.item(row_idx)
+        tmp_font = std_item.font()
+        tmp_font.setBold(False)
+        std_item.setFont(tmp_font)
+        std_item.setText(username)
+
+    def lst_users_double_clicked(self, item: QModelIndex):
+        row_idx = item.row()
+        username = self.client.users[row_idx]
+
+        if username:
+            self.create_chat_window(username)
+
+            self.ui.windows.chat[username].window.show()
+            self.ui.windows.chat[username].ui.txt_message.setFocus()
+
+            self.load_user_messages(username)
 
     def load_settings_form(self):
         tmp_ui = self.ui.windows.settings.ui
