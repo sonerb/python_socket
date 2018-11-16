@@ -1,15 +1,19 @@
 # -*- coding: utf-8 -*-
 import json
+import queue 
 
-from PyQt5 import QtWidgets
-from PyQt5.QtCore import QModelIndex
+from PyQt5 import QtWidgets, QtCore
+from PyQt5.QtCore import QModelIndex, Qt
 from PyQt5.QtGui import (QCloseEvent, QIcon, QPixmap, QStandardItem,
-                         QStandardItemModel, QCursor)
+                         QStandardItemModel, QCursor, QFont)
 from PyQt5.QtWidgets import QMessageBox, QSystemTrayIcon
 
 import resources_rc
+
 from form_chat import Ui_ChatWindow
 from form_settings import Ui_Settings
+
+from functools import partial
 
 
 class UI_Events(object):
@@ -40,9 +44,74 @@ class UI_Events(object):
     def txt_username_enter(self):
         self.btn_connect_clicked()
 
+    QtCore.pyqtSlot(str)
     def on_message(self, msg):
         self.ui.txt_chat.append(msg)
 
+    QtCore.pyqtSlot(str, str, str)
+    def on_pm_message(self, msg, m_from, m_to):
+        if self.client.username == m_from:
+            self.create_chat_window(m_to)
+            self.ui.windows['chat'][m_to][1].txt_chat.append(msg)
+        else:
+            self.create_chat_window(m_from)
+
+            if self.ui.windows['chat'][m_from][0].isVisible():
+                self.ui.windows['chat'][m_from][1].txt_chat.append(msg)
+            else:
+                if not m_from in self.client.user_chat_queue:
+                    self.client.user_chat_queue[m_from] = queue.Queue()
+
+                self.client.user_chat_queue[m_from].put(msg)
+                print('karşı, queue eklendi.')
+
+                model = self.ui.lst_users.model()
+                std_items = model.findItems(m_from)
+                if std_items:
+                    item = std_items[0]
+                    tmp_font = item.font()
+                    tmp_font.setBold(True)
+                    item.setFont(tmp_font)
+                # item.setText('{0} ({1})'.format(item.text(), self.client.user_chat_queue[m_from].qsize()))
+                    print(item.text())
+
+                # for index in range(model.rowCount()):
+                #     item = model.item(index)
+                #     tmp_font = item.font()
+                #     tmp_font.setBold(True)
+                #     item.setFont(tmp_font)
+                #     print(item.text())
+
+
+        # if self.client.username == m_from:
+        #     self.create_chat_window(m_to)
+        #     self.ui.windows['chat'][m_to][1].txt_chat.append(msg)
+        # else:
+        #     self.create_chat_window(m_from)
+
+        #     # if self.ui.windows['chat'][m_from][0].isVisible():
+        #     #     self.ui.windows['chat'][m_from][1].txt_chat.append(msg)
+        #     # else:
+        #     #     self.ui.windows['chat'][m_from][1].txt_chat.append(msg)
+        #     #     self.ui.windows['chat'][m_from][0].hide()
+
+        #     if self.ui.windows['chat'][m_from][0].isVisible():
+        #         print('isVisible True')
+        #         self.ui.windows['chat'][m_from][1].txt_chat.append(msg)
+        #     else:
+        #         print('isVisible False')
+        #         self.ui.windows['chat'][m_from][1].txt_chat.append(msg)
+        #         self.ui.windows['chat'][m_from][0].showMinimized()
+
+        #         self.window.tray_icon.messageClicked.connect(self.ui.windows['chat'][m_from][0].show)
+        #         self.window.tray_icon.showMessage(
+        #             self.window.windowTitle(),
+        #             "%s send a message"%(m_from),
+        #             QSystemTrayIcon.Information,
+        #             2000
+        #         )
+
+    QtCore.pyqtSlot(object)
     def on_user_list(self, obj):
         model = QStandardItemModel(self.ui.lst_users)
 
@@ -53,6 +122,7 @@ class UI_Events(object):
         
         self.ui.lst_users.setModel(model)
     
+    QtCore.pyqtSlot()
     def on_connect(self):
         self.ui.btn_connect.setVisible(False)
         self.ui.actionConnect.setVisible(False)
@@ -62,7 +132,8 @@ class UI_Events(object):
         self.ui.txt_message.setReadOnly(False)
         self.ui.txt_username.setReadOnly(True)
         self.ui.txt_message.setFocus()
-
+    
+    QtCore.pyqtSlot()
     def on_disconnect(self):
         self.ui.btn_disconnect.setVisible(False)
         self.ui.actionDisconnect.setVisible(False)
@@ -73,6 +144,7 @@ class UI_Events(object):
         self.ui.txt_username.setReadOnly(False)
         self.ui.txt_username.setFocus()
 
+    QtCore.pyqtSlot()
     def on_clear_user_list(self):
         model = QStandardItemModel(self.ui.lst_users)        
         self.ui.lst_users.setModel(model)
@@ -98,6 +170,7 @@ class UI_Events(object):
         self.client.stop()
         self.app.quit()
 
+    QtCore.pyqtSlot(str, str, str)
     def show_dialog_box(self, title, message, mb_type):
         if mb_type == 'c':
             QMessageBox.critical(self.window, title, message)
@@ -110,29 +183,54 @@ class UI_Events(object):
         else:
             QMessageBox.information(self.window, title, message)
 
-    def lst_users_double_clicked(self, item: QModelIndex):
+    def pm_btn_send_clicked(self, ui):
+        message = ui.txt_message.text()
+        self.client.talk(message, ui.username)
+        ui.txt_message.setText('')
+
+    def create_chat_window(self, username):
         if not hasattr(self.ui, 'windows'):
             self.ui.windows = dict()
         
         if not 'chat' in self.ui.windows:
             self.ui.windows['chat'] = dict()
 
-        username = item.data()
-
         if not username in self.ui.windows['chat']:
             icon = QIcon()
             icon.addPixmap(QPixmap(":/images/resources/images/chat_48x48.ico"), QIcon.Normal, QIcon.Off)
 
             tmp_window = QtWidgets.QMainWindow()
-            self.ui.windows['chat'][username] = tmp_window
-            cw = self.ui.windows['chat'][username]
             tmp_ui = Ui_ChatWindow()
-            tmp_ui.setupUi(cw)
-            cw.setWindowIcon(icon)
-            cw.setWindowTitle('{} - Chat'.format(username))
-            cw.show()
-        else:
-            self.ui.windows['chat'][username].show()
+            tmp_ui.setupUi(tmp_window)
+            tmp_ui.username = username
+
+            tmp_ui.btn_send.clicked.connect(partial(self.pm_btn_send_clicked, tmp_ui))
+            tmp_ui.txt_message.returnPressed.connect(partial(self.pm_btn_send_clicked, tmp_ui))
+
+            tmp_window.setWindowIcon(icon)
+            tmp_window.setWindowTitle('{} - Chat'.format(username))
+
+            self.ui.windows['chat'][username] = [tmp_window, tmp_ui]
+
+    def lst_users_double_clicked(self, item: QModelIndex):
+        username = item.data()
+
+        model = self.ui.lst_users.model()
+        std_item = model.item(item.row())
+        tmp_font = std_item.font()
+        tmp_font.setBold(False)
+        std_item.setFont(tmp_font)
+
+        self.create_chat_window(username)
+
+        self.ui.windows['chat'][username][0].show()
+        self.ui.windows['chat'][username][1].txt_message.setFocus()
+
+        if username in self.client.user_chat_queue:
+            while not self.client.user_chat_queue[username].empty():
+                msg = self.client.user_chat_queue[username].get()
+                print(msg)
+                self.ui.windows['chat'][username][1].txt_chat.append(msg)
     
     def sys_tray_icon_activated(self, reason):
         if reason == QSystemTrayIcon.DoubleClick:

@@ -81,29 +81,39 @@ class SocketServer(object):
         for key, val in self.connections.items():
             users.append( val['username'])
 
-        data = {'action': 'user_list', 'username': 'server', 'message': users, 'date_time': self.get_date_time()}
+        data = {'action': 'user_list', 'from': 'server', 'message': users, 'date_time': self.get_date_time()}
 
         for key, val in self.connections.items():
+            data['to'] = val['username']
             val['c'].send(self.json_to_str(data).encode('utf-8'))
     
     def on_connect(self, id, user_socket, user_data):
         username = user_data['username']
 
         if username in BANNED_USERS:
-            data = {'action': 'connect', 'username': 'server', 'message': 'Geçersiz kullanıcı adı girdiniz.', 'date_time': self.get_date_time(), 'status': False}
+            data = {'action': 'connect', 'from': 'server', 'message': 'Geçersiz kullanıcı adı girdiniz.', 'date_time': self.get_date_time(), 'status': False}
             user_socket['c'].send(self.json_to_str(data).encode('utf-8'))
             return
 
-        data = {'action': 'response', 'username': 'server', 'message': 'Hoşgeldiniz, {0}'.format(username), 'date_time': self.get_date_time()}
+        data = {'action': 'gm', 'from': 'server', 'message': 'Hoşgeldiniz, {0}'.format(username), 'date_time': self.get_date_time()}
         
         self.connections[id]['username'] = username
 
-        for u_id in self.connections:
-            if u_id != id:
-                self.connections[u_id]['c'].send(self.json_to_str(data).encode('utf-8'))
+        for key,val in self.connections.items():
+            if key != id:
+                data['to'] = val['username']
+                val['c'].send(self.json_to_str(data).encode('utf-8'))
             else:
-                data = {'action': 'connect', 'username': 'server', 'message': 'Hoşgeldiniz, {0}'.format(username), 'date_time': self.get_date_time(), 'status': True}
+                data = {'action': 'connect', 'from': 'server', 'to': username, 'message': 'Hoşgeldiniz, {0}'.format(username), 'date_time': self.get_date_time(), 'status': True}
                 user_socket['c'].send(self.json_to_str(data).encode('utf-8'))
+
+        # for u_id in self.connections:
+        #     if u_id != id:
+        #         data['to'] = self.connections[u_id]['username']
+        #         self.connections[u_id]['c'].send(self.json_to_str(data).encode('utf-8'))
+        #     else:
+        #         data = {'action': 'connect', 'username': 'server', 'message': 'Hoşgeldiniz, {0}'.format(username), 'date_time': self.get_date_time(), 'status': True}
+        #         user_socket['c'].send(self.json_to_str(data).encode('utf-8'))
         
         time.sleep(0.1)
         self.send_user_list()
@@ -111,14 +121,22 @@ class SocketServer(object):
     def on_disconnect(self, id, user_socket, user_data):
         username = user_data['username']
 
-        data = {'action': 'response', 'username': 'server', 'message': 'Güle güle, {0}'.format(username), 'date_time': self.get_date_time()}
+        data = {'action': 'gm', 'from': 'server', 'message': 'Güle güle, {0}'.format(username), 'date_time': self.get_date_time()}
 
-        for u_id in self.connections:
-            if u_id != id:
-                self.connections[u_id]['c'].send(self.json_to_str(data).encode('utf-8'))
+        for key,val in self.connections.items():
+            if key != id:
+                data['to'] = val['username']
+                val['c'].send(self.json_to_str(data).encode('utf-8'))
             else:
-                data = {'action': 'disconnect', 'username': 'server', 'message': 'Güle güle, {0}'.format(username), 'date_time': self.get_date_time(), 'status': True}
+                data = {'action': 'disconnect', 'from': 'server', 'to': username, 'message': 'Güle güle, {0}'.format(username), 'date_time': self.get_date_time(), 'status': True}
                 user_socket['c'].send(self.json_to_str(data).encode('utf-8'))
+
+        # for u_id in self.connections:
+        #     if u_id != id:
+        #         self.connections[u_id]['c'].send(self.json_to_str(data).encode('utf-8'))
+        #     else:
+        #         data = {'action': 'disconnect', 'username': 'server', 'message': 'Güle güle, {0}'.format(username), 'date_time': self.get_date_time(), 'status': True}
+        #         user_socket['c'].send(self.json_to_str(data).encode('utf-8'))
 
         # self.connections[id]['c'].shutdown(socket.SHUT_WR)
         # self.connections[id]['c'].close()
@@ -130,13 +148,23 @@ class SocketServer(object):
 
     def on_chat(self, id, user_socket, user_data):
         """ send chat message to all client """ 
-        username = user_data['username']
-        message = user_data['message']
-       
-        data = {'action': 'response', 'username': username, 'message': message, 'date_time': self.get_date_time()}
+        m_from = user_data['from']
+        m_to = user_data['to']
+        m_message = user_data['message']
 
-        for u_id in self.connections:
-            self.connections[u_id]['c'].send(self.json_to_str(data).encode('utf-8'))
+        if m_to == 'server':
+            data = {'action': 'gm', 'from': m_from, 'message': m_message, 'date_time': self.get_date_time()}
+            for key, val in self.connections.items():
+                data['to'] = val['username']
+                val['c'].send(self.json_to_str(data).encode('utf-8'))
+        else:
+            data = {'action': 'pm', 'from': m_from, 'to': m_to, 'message': m_message, 'date_time': self.get_date_time()}
+            for key, val in self.connections.items():
+                if val['username'] in [m_to, m_from]:
+                    val['c'].send(self.json_to_str(data).encode('utf-8'))
+
+        # for u_id in self.connections:
+        #     self.connections[u_id]['c'].send(self.json_to_str(data).encode('utf-8'))
 
     def on_handshake(self, id, user_socket, hash):
         LOGGER.info('Handshake : {0}'.format(hash))
