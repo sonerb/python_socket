@@ -44,6 +44,11 @@ class UI_Events(object):
     def txt_username_enter(self):
         self.btn_connect_clicked()
 
+    def btn_pm_send_clicked(self, ui):
+        message = ui.txt_message.text()
+        self.client.talk(message, ui.username)
+        ui.txt_message.setText('')
+
     QtCore.pyqtSlot(str)
     def on_message(self, msg):
         self.ui.txt_chat.append(msg)
@@ -121,6 +126,8 @@ class UI_Events(object):
             model.appendRow(item)
         
         self.ui.lst_users.setModel(model)
+
+        self.ui.lbl_sbar_user_count.setText('{0}'.format(model.rowCount()))
     
     QtCore.pyqtSlot()
     def on_connect(self):
@@ -128,7 +135,12 @@ class UI_Events(object):
         self.ui.actionConnect.setVisible(False)
         self.ui.actionDisconnect.setVisible(True)
         self.ui.btn_disconnect.setVisible(True)
-        self.ui.statusbar.showMessage('Connected')
+        self.ui.lbl_sbar_conn.setStyleSheet('color: green')
+        self.ui.lbl_sbar_conn.setText('Connected')
+        self.ui.lbl_sbar_login.setText('Logged as <b>{0}</b>'.format(self.client.username))
+
+        self.chat_windows_status(True)
+
         self.ui.txt_message.setReadOnly(False)
         self.ui.txt_username.setReadOnly(True)
         self.ui.txt_message.setFocus()
@@ -139,7 +151,13 @@ class UI_Events(object):
         self.ui.actionDisconnect.setVisible(False)
         self.ui.actionConnect.setVisible(True)
         self.ui.btn_connect.setVisible(True)
-        self.ui.statusbar.showMessage('Disconnected')
+        self.ui.lbl_sbar_conn.setStyleSheet('color: red')
+        self.ui.lbl_sbar_conn.setText('Disconnected')
+        self.ui.lbl_sbar_login.setText('')
+        self.ui.lbl_sbar_user_count.setText('0')
+
+        self.chat_windows_status(False)
+
         self.ui.txt_message.setReadOnly(True)
         self.ui.txt_username.setReadOnly(False)
         self.ui.txt_username.setFocus()
@@ -148,6 +166,19 @@ class UI_Events(object):
     def on_clear_user_list(self):
         model = QStandardItemModel(self.ui.lst_users)        
         self.ui.lst_users.setModel(model)
+
+        QtCore.pyqtSlot(str, str, str)
+    def show_dialog_box(self, title, message, mb_type):
+        if mb_type == 'c':
+            QMessageBox.critical(self.window, title, message)
+        elif mb_type == 'i':
+            QMessageBox.information(self.window, title, message)
+        elif mb_type == 'q':
+            QMessageBox.question(self.window, title, message)
+        elif mb_type == 'w':
+            QMessageBox.warning(self.window, title, message)
+        else:
+            QMessageBox.information(self.window, title, message)
 
     def on_close(self):
         self.app.closeAllWindows()
@@ -178,24 +209,6 @@ class UI_Events(object):
         self.client.stop()
         self.app.quit()
 
-    QtCore.pyqtSlot(str, str, str)
-    def show_dialog_box(self, title, message, mb_type):
-        if mb_type == 'c':
-            QMessageBox.critical(self.window, title, message)
-        elif mb_type == 'i':
-            QMessageBox.information(self.window, title, message)
-        elif mb_type == 'q':
-            QMessageBox.question(self.window, title, message)
-        elif mb_type == 'w':
-            QMessageBox.warning(self.window, title, message)
-        else:
-            QMessageBox.information(self.window, title, message)
-
-    def pm_btn_send_clicked(self, ui):
-        message = ui.txt_message.text()
-        self.client.talk(message, ui.username)
-        ui.txt_message.setText('')
-
     def create_chat_window(self, username):
         if not hasattr(self.ui, 'windows'):
             self.ui.windows = dict()
@@ -212,13 +225,18 @@ class UI_Events(object):
             tmp_ui.setupUi(tmp_window)
             tmp_ui.username = username
 
-            tmp_ui.btn_send.clicked.connect(partial(self.pm_btn_send_clicked, tmp_ui))
-            tmp_ui.txt_message.returnPressed.connect(partial(self.pm_btn_send_clicked, tmp_ui))
+            tmp_ui.btn_send.clicked.connect(partial(self.btn_pm_send_clicked, tmp_ui))
+            tmp_ui.txt_message.returnPressed.connect(partial(self.btn_pm_send_clicked, tmp_ui))
+
+            tmp_ui.statusbar.addPermanentWidget(tmp_ui.lbl_sbar_conn, 2)
+            tmp_ui.statusbar.addPermanentWidget(tmp_ui.lbl_sbar_login, 8)
 
             tmp_window.setWindowIcon(icon)
             tmp_window.setWindowTitle('{} - Chat'.format(username))
 
             self.ui.windows['chat'][username] = [tmp_window, tmp_ui]
+
+            self.chat_windows_status(True)
 
     def lst_users_double_clicked(self, item: QModelIndex):
         username = item.data()
@@ -239,12 +257,6 @@ class UI_Events(object):
                 msg = self.client.user_chat_queue[username].get()
                 print(msg)
                 self.ui.windows['chat'][username][1].txt_chat.append(msg)
-    
-    def sys_tray_icon_activated(self, reason):
-        if reason == QSystemTrayIcon.DoubleClick:
-            self.window.tray_icon.contextMenu().exec_(QCursor().pos())
-        elif reason == QSystemTrayIcon.Trigger:
-            self.window.show()
 
     def load_settings_form(self):
         ui = self.ui.windows['settings'][1]
@@ -293,3 +305,23 @@ class UI_Events(object):
         
         self.load_settings_form()
         self.ui.windows['settings'][0].show()
+
+    def sys_tray_icon_activated(self, reason):
+        if reason == QSystemTrayIcon.DoubleClick:
+            self.window.tray_icon.contextMenu().exec_(QCursor().pos())
+        elif reason == QSystemTrayIcon.Trigger:
+            self.window.show()
+
+    def chat_windows_status(self, status):
+        if status:
+            if hasattr(self.ui, 'windows') and 'chat' in self.ui.windows:
+                for key, val in self.ui.windows['chat'].items():
+                    val[1].lbl_sbar_conn.setStyleSheet('color: green')
+                    val[1].lbl_sbar_conn.setText('Connected')
+                    val[1].lbl_sbar_login.setText('Logged as <b>{0}</b>'.format(self.client.username))
+        else:
+            if hasattr(self.ui, 'windows') and 'chat' in self.ui.windows:
+                for key, val in self.ui.windows['chat'].items():
+                    val[1].lbl_sbar_conn.setStyleSheet('color: red')
+                    val[1].lbl_sbar_conn.setText('Disconnected')
+                    val[1].lbl_sbar_login.setText('')

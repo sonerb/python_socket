@@ -22,10 +22,6 @@ from form_main import Ui_SocketChat
 from ui_events import UI_Events
 from socket_client import SocketClient
 
-password = "My Secret Word!"
-host = '10.90.4.109'
-port = 80
-
 class Communicate(QObject):
     """ Communication class """
 
@@ -41,6 +37,7 @@ class Communicate(QObject):
         QObject.__init__(self)
 
 def load_settings():
+    """ load settings from settings.json file """
     if os.path.exists('settings.json'):
         json_data = open('settings.json').read()
 
@@ -92,7 +89,13 @@ def main():
     qt_ui.btn_disconnect.setVisible(False)
     qt_ui.actionDisconnect.setVisible(False)
 
-    qt_ui.statusbar.showMessage('Disconnected')
+    qt_ui.lbl_sbar_conn.setStyleSheet('color: red')
+    qt_ui.lbl_sbar_conn.setText('Disconnected')
+    qt_ui.lbl_sbar_login.setText('')
+    qt_ui.lbl_sbar_user_count.setText('0')
+    qt_ui.statusbar.addPermanentWidget(qt_ui.lbl_sbar_conn, 2)
+    qt_ui.statusbar.addPermanentWidget(qt_ui.lbl_sbar_login, 3)
+    qt_ui.statusbar.addPermanentWidget(qt_ui.lbl_sbar_user_count, 7)
     qt_ui.txt_message.setReadOnly(True)
 
     ############################# SYSTEM TRAY ICON #############################
@@ -100,7 +103,7 @@ def main():
     icon.addPixmap(QPixmap(":/images/resources/images/chat_48x48.ico"), QIcon.Normal, QIcon.Off)
 
     main_window.tray_icon = QSystemTrayIcon(main_window)
-    main_window.tray_icon.setIcon(icon) #setIcon(main_window.style().standardIcon(QStyle.SP_ComputerIcon))
+    main_window.tray_icon.setIcon(icon)
     main_window.tray_icon.activated.connect(events.sys_tray_icon_activated)
     # main_window.tray_icon.messageClicked.connect(main_window.show)
 
@@ -126,8 +129,4 @@ def main():
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
-
-    if len(sys.argv) > 1:
-        password = sys.argv[1]
-
     main()

@@ -33,6 +33,12 @@ class Ui_ChatWindow(object):
         self.hLayout_send.addWidget(self.btn_send)
         self.verticalLayout.addLayout(self.hLayout_send)
         self.verticalLayout_2.addLayout(self.verticalLayout)
+        self.lbl_sbar_conn = QtWidgets.QLabel(self.centralwidget)
+        self.lbl_sbar_conn.setObjectName("lbl_sbar_conn")
+        self.verticalLayout_2.addWidget(self.lbl_sbar_conn)
+        self.lbl_sbar_login = QtWidgets.QLabel(self.centralwidget)
+        self.lbl_sbar_login.setObjectName("lbl_sbar_login")
+        self.verticalLayout_2.addWidget(self.lbl_sbar_login)
         ChatWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(ChatWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 627, 21))
@@ -49,6 +55,8 @@ class Ui_ChatWindow(object):
         _translate = QtCore.QCoreApplication.translate
         ChatWindow.setWindowTitle(_translate("ChatWindow", "Chat Window"))
         self.btn_send.setText(_translate("ChatWindow", "Send"))
+        self.lbl_sbar_conn.setText(_translate("ChatWindow", "lbl_sbar_conn"))
+        self.lbl_sbar_login.setText(_translate("ChatWindow", "lbl_sbar_login"))
 
 
 if __name__ == "__main__":

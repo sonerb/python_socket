@@ -43,6 +43,20 @@
       </item>
      </layout>
     </item>
+    <item>
+     <widget class="QLabel" name="lbl_sbar_conn">
+      <property name="text">
+       <string>lbl_sbar_conn</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="lbl_sbar_login">
+      <property name="text">
+       <string>lbl_sbar_login</string>
+      </property>
+     </widget>
+    </item>
    </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">

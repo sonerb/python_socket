@@ -20,7 +20,7 @@
    <string>Socket Chat</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="resources.qrc">
+   <iconset>
     <normaloff>:/images/resources/images/chat_48x48.ico</normaloff>:/images/resources/images/chat_48x48.ico</iconset>
   </property>
   <widget class="QWidget" name="centralwidget">
@@ -109,6 +109,30 @@
        </layout>
       </item>
      </layout>
+    </item>
+    <item>
+     <widget class="QLabel" name="lbl_sbar_conn">
+      <property name="text">
+       <string>lbl_sbar_conn</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="lbl_sbar_login">
+      <property name="text">
+       <string>lbl_sbar_login</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="lbl_sbar_user_count">
+      <property name="text">
+       <string>lbl_sbar_user_count</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+      </property>
+     </widget>
     </item>
    </layout>
   </widget>
