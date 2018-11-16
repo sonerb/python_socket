@@ -57,12 +57,12 @@ class UI_Events(object):
     def on_pm_message(self, msg, m_from, m_to):
         if self.client.username == m_from:
             self.create_chat_window(m_to)
-            self.ui.windows['chat'][m_to][1].txt_chat.append(msg)
+            self.ui.windows.chat[m_to].ui.txt_chat.append(msg)
         else:
             self.create_chat_window(m_from)
 
-            if self.ui.windows['chat'][m_from][0].isVisible():
-                self.ui.windows['chat'][m_from][1].txt_chat.append(msg)
+            if self.ui.windows.chat[m_from].window.isVisible():
+                self.ui.windows.chat[m_from].ui.txt_chat.append(msg)
             else:
                 if not m_from in self.client.user_chat_queue:
                     self.client.user_chat_queue[m_from] = queue.Queue()
@@ -90,25 +90,25 @@ class UI_Events(object):
 
         # if self.client.username == m_from:
         #     self.create_chat_window(m_to)
-        #     self.ui.windows['chat'][m_to][1].txt_chat.append(msg)
+        #     self.ui.windows.chat[m_to][1].txt_chat.append(msg)
         # else:
         #     self.create_chat_window(m_from)
 
-        #     # if self.ui.windows['chat'][m_from][0].isVisible():
-        #     #     self.ui.windows['chat'][m_from][1].txt_chat.append(msg)
+        #     # if self.ui.windows.chat[m_from][0].isVisible():
+        #     #     self.ui.windows.chat[m_from][1].txt_chat.append(msg)
         #     # else:
-        #     #     self.ui.windows['chat'][m_from][1].txt_chat.append(msg)
-        #     #     self.ui.windows['chat'][m_from][0].hide()
+        #     #     self.ui.windows.chat[m_from][1].txt_chat.append(msg)
+        #     #     self.ui.windows.chat[m_from][0].hide()
 
-        #     if self.ui.windows['chat'][m_from][0].isVisible():
+        #     if self.ui.windows.chat[m_from][0].isVisible():
         #         print('isVisible True')
-        #         self.ui.windows['chat'][m_from][1].txt_chat.append(msg)
+        #         self.ui.windows.chat[m_from][1].txt_chat.append(msg)
         #     else:
         #         print('isVisible False')
-        #         self.ui.windows['chat'][m_from][1].txt_chat.append(msg)
-        #         self.ui.windows['chat'][m_from][0].showMinimized()
+        #         self.ui.windows.chat[m_from][1].txt_chat.append(msg)
+        #         self.ui.windows.chat[m_from][0].showMinimized()
 
-        #         self.window.tray_icon.messageClicked.connect(self.ui.windows['chat'][m_from][0].show)
+        #         self.window.tray_icon.messageClicked.connect(self.ui.windows.chat[m_from][0].show)
         #         self.window.tray_icon.showMessage(
         #             self.window.windowTitle(),
         #             "%s send a message"%(m_from),
@@ -195,12 +195,12 @@ class UI_Events(object):
             )
         else:
             if hasattr(self.ui, 'windows'):
-                if 'settings' in self.ui.windows:
-                    self.ui.windows['settings'][0].close()
+                if hasattr(self.ui.windows, 'settings'):
+                    self.ui.windows.settings.window.close()
 
-                if 'chat' in self.ui.windows:
-                    for key,val in self.ui.windows['chat'].items():
-                        val[0].close()
+                if hasattr(self.ui.windows, 'chat'):
+                    for key, val in self.ui.windows.chat.items():
+                        val.window.close()
 
             self.client.stop()
             event.accept()
@@ -211,12 +211,15 @@ class UI_Events(object):
 
     def create_chat_window(self, username):
         if not hasattr(self.ui, 'windows'):
-            self.ui.windows = dict()
-        
-        if not 'chat' in self.ui.windows:
-            self.ui.windows['chat'] = dict()
+            self.ui.windows = lambda: None
 
-        if not username in self.ui.windows['chat']:
+        if not hasattr(self.ui.windows, 'chat'):
+            setattr(self.ui.windows, 'chat', dict())
+        
+        # if not 'chat' in self.ui.windows:
+        #     self.ui.windows.chat = dict()
+
+        if not username in self.ui.windows.chat:
             icon = QIcon()
             icon.addPixmap(QPixmap(":/images/resources/images/chat_48x48.ico"), QIcon.Normal, QIcon.Off)
 
@@ -234,7 +237,10 @@ class UI_Events(object):
             tmp_window.setWindowIcon(icon)
             tmp_window.setWindowTitle('{} - Chat'.format(username))
 
-            self.ui.windows['chat'][username] = [tmp_window, tmp_ui]
+            self.ui.windows.chat[username] = lambda: None
+
+            setattr(self.ui.windows.chat[username], 'window', tmp_window)
+            setattr(self.ui.windows.chat[username], 'ui', tmp_ui)
 
             self.chat_windows_status(True)
 
@@ -249,34 +255,34 @@ class UI_Events(object):
 
         self.create_chat_window(username)
 
-        self.ui.windows['chat'][username][0].show()
-        self.ui.windows['chat'][username][1].txt_message.setFocus()
+        self.ui.windows.chat[username].window.show()
+        self.ui.windows.chat[username].ui.txt_message.setFocus()
 
         if username in self.client.user_chat_queue:
             while not self.client.user_chat_queue[username].empty():
                 msg = self.client.user_chat_queue[username].get()
                 print(msg)
-                self.ui.windows['chat'][username][1].txt_chat.append(msg)
+                self.ui.windows.chat[username].ui.txt_chat.append(msg)
 
     def load_settings_form(self):
-        ui = self.ui.windows['settings'][1]
-        ui.txt_server_address.setText(str(self.settings['settings']['server'][0]))
-        ui.txt_server_port.setText(str(self.settings['settings']['server'][1]))
-        ui.txt_enc_password.setText(str(self.settings['settings']['encryption']))
-        ui.chb_minimize.setChecked(self.settings['settings']['minimize'])
+        tmp_ui = self.ui.windows.settings.ui
+        tmp_ui.txt_server_address.setText(str(self.settings['settings']['server'][0]))
+        tmp_ui.txt_server_port.setText(str(self.settings['settings']['server'][1]))
+        tmp_ui.txt_enc_password.setText(str(self.settings['settings']['encryption']))
+        tmp_ui.chb_minimize.setChecked(self.settings['settings']['minimize'])
     
     def settings_form_ok(self):
-        ui = self.ui.windows['settings'][1]
-        window = self.ui.windows['settings'][0]
+        tmp_ui = self.ui.windows.settings.ui
+        tmp_window = self.ui.windows.settings.window
         
-        server_address = str(ui.txt_server_address.text())
-        server_port = int(ui.txt_server_port.text())
-        enc_password = str(ui.txt_enc_password.text())
+        server_address = str(tmp_ui.txt_server_address.text())
+        server_port = int(tmp_ui.txt_server_port.text())
+        enc_password = str(tmp_ui.txt_enc_password.text())
 
 
         self.settings['settings']['server'] = [server_address, server_port]
         self.settings['settings']['encryption'] = enc_password
-        self.settings['settings']['minimize'] = ui.chb_minimize.isChecked()
+        self.settings['settings']['minimize'] = tmp_ui.chb_minimize.isChecked()
 
         with open('settings.json', 'w') as file:
             file.write(json.dumps(self.settings))
@@ -285,14 +291,18 @@ class UI_Events(object):
         self.client.enc_pass = enc_password
 
         print('Saved!')
-        window.hide()
+        tmp_window.hide()
 
 
     def open_preferences(self):
         if not hasattr(self.ui, 'windows'):
-            self.ui.windows = dict()
+            self.ui.windows = lambda: None
+        
+        if not hasattr(self.ui.windows, 'settings'):
+            setattr(self.ui.windows, 'settings', lambda: None)
+            setattr(self.ui.windows.settings, 'window', None)
+            setattr(self.ui.windows.settings, 'ui', None)
 
-        if not 'settings' in self.ui.windows:
             icon = QIcon()
             icon.addPixmap(QPixmap(":/images/resources/images/chat_48x48.ico"), QIcon.Normal, QIcon.Off)
             
@@ -301,10 +311,12 @@ class UI_Events(object):
             tmp_ui.setupUi(tmp_window)
             tmp_window.setWindowIcon(icon)
             tmp_window.accept = self.settings_form_ok
-            self.ui.windows['settings'] = [tmp_window, tmp_ui]
-        
+
+            self.ui.windows.settings.window = tmp_window
+            self.ui.windows.settings.ui = tmp_ui
+
         self.load_settings_form()
-        self.ui.windows['settings'][0].show()
+        self.ui.windows.settings.window.show()
 
     def sys_tray_icon_activated(self, reason):
         if reason == QSystemTrayIcon.DoubleClick:
@@ -314,14 +326,14 @@ class UI_Events(object):
 
     def chat_windows_status(self, status):
         if status:
-            if hasattr(self.ui, 'windows') and 'chat' in self.ui.windows:
-                for key, val in self.ui.windows['chat'].items():
-                    val[1].lbl_sbar_conn.setStyleSheet('color: green')
-                    val[1].lbl_sbar_conn.setText('Connected')
-                    val[1].lbl_sbar_login.setText('Logged as <b>{0}</b>'.format(self.client.username))
+            if hasattr(self.ui, 'windows') and hasattr(self.ui.windows, 'chat'):
+                for key, val in self.ui.windows.chat.items():
+                    val.ui.lbl_sbar_conn.setStyleSheet('color: green')
+                    val.ui.lbl_sbar_conn.setText('Connected')
+                    val.ui.lbl_sbar_login.setText('Logged as <b>{0}</b>'.format(self.client.username))
         else:
-            if hasattr(self.ui, 'windows') and 'chat' in self.ui.windows:
-                for key, val in self.ui.windows['chat'].items():
-                    val[1].lbl_sbar_conn.setStyleSheet('color: red')
-                    val[1].lbl_sbar_conn.setText('Disconnected')
-                    val[1].lbl_sbar_login.setText('')
+            if hasattr(self.ui, 'windows') and hasattr(self.ui.windows, 'chat'):
+                for key, val in self.ui.windows.chat.items():
+                    val.ui.lbl_sbar_conn.setStyleSheet('color: red')
+                    val.ui.lbl_sbar_conn.setText('Disconnected')
+                    val.ui.lbl_sbar_login.setText('')
