@@ -163,6 +163,14 @@ class UI_Events(object):
                 2000
             )
         else:
+            if hasattr(self.ui, 'windows'):
+                if 'settings' in self.ui.windows:
+                    self.ui.windows['settings'][0].close()
+
+                if 'chat' in self.ui.windows:
+                    for key,val in self.ui.windows['chat'].items():
+                        val[0].close()
+
             self.client.stop()
             event.accept()
     
